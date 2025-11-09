@@ -1,10 +1,12 @@
 """A module to generate public and private keys for the CKKS scheme."""
 
+import numpy as np
 from util.polynomial import Polynomial
 from util.public_key import PublicKey
 from util.rotation_key import RotationKey
 from util.secret_key import SecretKey
 from util.random_sample import sample_triangle, sample_uniform, sample_hamming_weight_vector
+
 
 class CKKSKeyGenerator:
 
