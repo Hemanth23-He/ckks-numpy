@@ -3,6 +3,7 @@ and Fermat Theoretic Transform (FTT). See https://rijndael.ece.vt.edu/schaum/pdf
 """
 
 from math import log, pi, cos, sin
+import numpy as np
 import util.number_theory as nbtheory
 from util.bit_operations import bit_reverse_vec, reverse_bits
 
@@ -61,20 +62,20 @@ class NTTContext:
         """
 
         # Find powers of root of unity.
-        self.roots_of_unity = [1] * self.degree
+        self.roots_of_unity = np.ones(self.degree, dtype=np.int64)
         for i in range(1, self.degree):
             self.roots_of_unity[i] = \
                 (self.roots_of_unity[i - 1] * root_of_unity) % self.coeff_modulus
 
         # Find powers of inverse root of unity.
         root_of_unity_inv = nbtheory.mod_inv(root_of_unity, self.coeff_modulus)
-        self.roots_of_unity_inv = [1] * self.degree
+        self.roots_of_unity_inv = np.ones(self.degree, dtype=np.int64)
         for i in range(1, self.degree):
             self.roots_of_unity_inv[i] = \
                 (self.roots_of_unity_inv[i - 1] * root_of_unity_inv) % self.coeff_modulus
 
         # Compute precomputed array of reversed bits for iterated NTT.
-        self.reversed_bits = [0] * self.degree
+        self.reversed_bits = np.zeros(self.degree, dtype=np.int64)
         width = int(log(self.degree, 2))
         for i in range(self.degree):
             self.reversed_bits[i] = reverse_bits(i, width) % self.degree
@@ -94,11 +95,13 @@ class NTTContext:
         Returns:
             List of transformed coefficients.
         """
+        coeffs = np.asarray(coeffs, dtype=np.int64)
+        rou = np.asarray(rou, dtype=np.int64)
         num_coeffs = len(coeffs)
         assert len(rou) == num_coeffs, \
-            "Length of the roots of unity is too small. Length is " + len(rou)
+            "Length of the roots of unity is too small. Length is " + str(len(rou))
 
-        result = bit_reverse_vec(coeffs)
+        result = np.asarray(bit_reverse_vec(coeffs), dtype=np.int64)
 
         log_num_coeffs = int(log(num_coeffs, 2))
 
@@ -117,7 +120,7 @@ class NTTContext:
                     result[index_even] = butterfly_plus
                     result[index_odd] = butterfly_minus
 
-        return result
+        return result.tolist()
 
     def ftt_fwd(self, coeffs):
         """Runs forward FTT on the given coefficients.
@@ -131,12 +134,12 @@ class NTTContext:
         Returns:
             List of transformed coefficients.
         """
+        coeffs = np.asarray(coeffs, dtype=np.int64)
         num_coeffs = len(coeffs)
         assert num_coeffs == self.degree, "ftt_fwd: input length does not match context degree"
 
         # We use the FTT input given in the FTT paper.
-        ftt_input = [(int(coeffs[i]) * self.roots_of_unity[i]) % self.coeff_modulus
-                     for i in range(num_coeffs)]
+        ftt_input = np.mod(coeffs * self.roots_of_unity, self.coeff_modulus)
 
         return self.ntt(coeffs=ftt_input, rou=self.roots_of_unity)
 
@@ -152,17 +155,17 @@ class NTTContext:
         Returns:
             List of inversely transformed coefficients.
         """
+        coeffs = np.asarray(coeffs, dtype=np.int64)
         num_coeffs = len(coeffs)
         assert num_coeffs == self.degree, "ntt_inv: input length does not match context degree"
 
-        to_scale_down = self.ntt(coeffs=coeffs, rou=self.roots_of_unity_inv)
+        to_scale_down = np.asarray(self.ntt(coeffs=coeffs, rou=self.roots_of_unity_inv), dtype=np.int64)
         poly_degree_inv = nbtheory.mod_inv(self.degree, self.coeff_modulus)
 
         # We scale down the FTT output given in the FTT paper.
-        result = [(int(to_scale_down[i]) * self.roots_of_unity_inv[i] * poly_degree_inv) \
-                  % self.coeff_modulus for i in range(num_coeffs)]
+        result = np.mod(to_scale_down * self.roots_of_unity_inv * poly_degree_inv, self.coeff_modulus)
 
-        return result
+        return result.tolist()
 
 
 class FFTContext:
@@ -195,8 +198,8 @@ class FFTContext:
         Precomputes all powers of roots of unity for the FFT and powers of inverse
         roots of unity for the inverse FFT.
         """
-        self.roots_of_unity = [0] * self.fft_length
-        self.roots_of_unity_inv = [0] * self.fft_length
+        self.roots_of_unity = np.zeros(self.fft_length, dtype=np.complex128)
+        self.roots_of_unity_inv = np.zeros(self.fft_length, dtype=np.complex128)
         for i in range(self.fft_length):
             angle = 2 * pi * i / self.fft_length
             self.roots_of_unity[i] = complex(cos(angle), sin(angle))
@@ -204,13 +207,13 @@ class FFTContext:
 
         # Compute precomputed array of reversed bits for iterated FFT.
         num_slots = self.fft_length // 4
-        self.reversed_bits = [0] * num_slots
+        self.reversed_bits = np.zeros(num_slots, dtype=np.int64)
         width = int(log(num_slots, 2))
         for i in range(num_slots):
             self.reversed_bits[i] = reverse_bits(i, width) % num_slots
 
         # Compute rotation group for EMB with powers of 5.
-        self.rot_group = [1] * num_slots
+        self.rot_group = np.ones(num_slots, dtype=np.int64)
         for i in range(1, num_slots):
             self.rot_group[i] = (5 * self.rot_group[i - 1]) % self.fft_length
 
@@ -229,11 +232,13 @@ class FFTContext:
         Returns:
             List of transformed coefficients.
         """
+        coeffs = np.asarray(coeffs, dtype=np.complex128)
+        rou = np.asarray(rou, dtype=np.complex128)
         num_coeffs = len(coeffs)
         assert len(rou) >= num_coeffs, \
             "Length of the roots of unity is too small. Length is " + str(len(rou))
 
-        result = bit_reverse_vec(coeffs)
+        result = np.asarray(bit_reverse_vec(coeffs), dtype=np.complex128)
 
         log_num_coeffs = int(log(num_coeffs, 2))
 
@@ -252,7 +257,7 @@ class FFTContext:
                     result[index_even] = butterfly_plus
                     result[index_odd] = butterfly_minus
 
-        return result
+        return result.tolist()
 
     def fft_fwd(self, coeffs):
         """Runs forward FFT on the given values.
@@ -279,12 +284,10 @@ class FFTContext:
             List of transformed coefficients.
         """
         num_coeffs = len(coeffs)
-        result = self.fft(coeffs, rou=self.roots_of_unity_inv)
+        result = np.asarray(self.fft(coeffs, rou=self.roots_of_unity_inv), dtype=np.complex128)
+        result /= num_coeffs
 
-        for i in range(num_coeffs):
-            result[i] /= num_coeffs
-
-        return result
+        return result.tolist()
 
     def check_embedding_input(self, values):
         """Checks that the length of the input vector to embedding is the correct size.
@@ -312,8 +315,9 @@ class FFTContext:
             List of transformed coefficients.
         """
         self.check_embedding_input(coeffs)
+        coeffs = np.asarray(coeffs, dtype=np.complex128)
         num_coeffs = len(coeffs)
-        result = bit_reverse_vec(coeffs)
+        result = np.asarray(bit_reverse_vec(coeffs), dtype=np.complex128)
         log_num_coeffs = int(log(num_coeffs, 2))
 
         for logm in range(1, log_num_coeffs + 1):
@@ -333,7 +337,7 @@ class FFTContext:
                     result[index_even] = butterfly_plus
                     result[index_odd] = butterfly_minus
 
-        return result
+        return result.tolist()
 
     def embedding_inv(self, coeffs):
         """Computes the inverse variant of the canonical embedding.
@@ -345,6 +349,7 @@ class FFTContext:
             List of transformed coefficients.
         """
         self.check_embedding_input(coeffs)
+        coeffs = np.asarray(coeffs, dtype=np.complex128)
         num_coeffs = len(coeffs)
         result = coeffs.copy()
         log_num_coeffs = int(log(num_coeffs, 2))
@@ -366,9 +371,7 @@ class FFTContext:
                     result[index_even] = butterfly_plus
                     result[index_odd] = butterfly_minus
 
-        to_scale_down = bit_reverse_vec(result)
+        to_scale_down = np.asarray(bit_reverse_vec(result), dtype=np.complex128)
+        to_scale_down /= num_coeffs
 
-        for i in range(num_coeffs):
-            to_scale_down[i] /= num_coeffs
-
-        return to_scale_down
+        return to_scale_down.tolist()
