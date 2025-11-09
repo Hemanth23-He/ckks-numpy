@@ -1,7 +1,7 @@
 
 
 import numpy as np
-from Polynomial import polynomial  # Assuming 'polynomial.py' defines a 'Polynomial' class
+from polynomial import polynomial  # Assuming 'polynomial.py' defines a 'Polynomial' class
 
 # This module provides a class to keep track of a secret key,
 # leveraging numpy for underlying polynomial operations within the
