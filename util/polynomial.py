@@ -4,7 +4,7 @@ Z_a[x]/f(x).
 import numpy as np
 from util.ntt import NTTContext, FFTContext
 
-class Polynomial:
+class polynomial:
     """A polynomial in the ring R_a.
 
     Here, R is the quotient ring Z[x]/f(x), where f(x) = x^d + 1.
