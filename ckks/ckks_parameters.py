@@ -39,7 +39,7 @@ class CKKSParameters:
         self.hamming_weight = poly_degree // 4
         self.crt_context = None
         if prime_size:
-            num_primes = 1 + int((1 + np.log2(poly_degree) + 4 * np.log2(big_modulus)) / prime_size)
+            num_primes = 1 + int((1 + math.log(poly_degree, 2) + 4 * math.log(big_modulus, 2)) / prime_size)
             self.crt_context = CRTContext(num_primes, prime_size, poly_degree)
     
     def print_parameters(self):
@@ -47,9 +47,9 @@ class CKKSParameters:
         """
         print("Encryption parameters")
         print("\t Polynomial degree: %d" %(self.poly_degree))
-        print("\t Ciphertext modulus size: %d bits" % (int(np.log2(self.ciph_modulus))))
-        print("\t Big ciphertext modulus size: %d bits" % (int(np.log2(self.big_modulus))))
-        print("\t Scaling factor size: %d bits" % (int(np.log2(self.scaling_factor))))
+        print("\t Ciphertext modulus size: %d bits" % (int(math.log(self.ciph_modulus, 2))))
+        print("\t Big ciphertext modulus size: %d bits" % (int(math.log(self.big_modulus, 2))))
+        print("\t Scaling factor size: %d bits" % (int(math.log(self.scaling_factor, 2))))
         print("\t Number of Taylor iterations: %d" % (self.num_taylor_iterations))
         if self.crt_context:
             rns = "Yes"
