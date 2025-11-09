@@ -1,7 +1,10 @@
 """A module to sample randomly from various distributions."""
 import numpy as np
+import random
 
 def sample_uniform(min_val, max_val, num_samples):
+    """Sample from uniform distribution."""
+  
     """Samples from a uniform distribution.
     
     Samples num_samples integer values from the range [min, max)
@@ -15,9 +18,9 @@ def sample_uniform(min_val, max_val, num_samples):
     Returns:
         A list of randomly sampled values.
     """
-    if num_samples == 1:
-        return int(np.random.randint(min_val, max_val))
-    return np.random.randint(min_val, max_val, size=num_samples).tolist()
+     if num_samples == 1:
+        return random.randint(min_val, max_val - 1)
+    return [random.randint(min_val, max_val - 1) for _ in range(num_samples)]
 
 def sample_triangle(num_samples):
     """Samples from a discrete triangle distribution.
