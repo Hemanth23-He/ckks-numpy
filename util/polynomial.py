@@ -1,6 +1,7 @@
 """A module to handle polynomial arithmetic in the quotient ring
 Z_a[x]/f(x).
 """
+import numpy as np
 from util.ntt import NTTContext, FFTContext
 
 class Polynomial:
@@ -26,6 +27,7 @@ class Polynomial:
                 coefficients of polynomial.
         """
         self.ring_degree = degree
+        coeffs = np.asarray(coeffs)
         assert len(coeffs) == degree, 'Size of polynomial array %d is not \
             equal to degree %d of ring' %(len(coeffs), degree)
 
@@ -47,12 +49,11 @@ class Polynomial:
         """
         assert isinstance(poly, Polynomial)
 
-        poly_sum = Polynomial(self.ring_degree, [0] * self.ring_degree)
-
-        poly_sum.coeffs = [self.coeffs[i] + poly.coeffs[i] for i in range(self.ring_degree)]
+        poly_sum_coeffs = self.coeffs + poly.coeffs
         if coeff_modulus:
-            poly_sum = poly_sum.mod(coeff_modulus)
-        return poly_sum
+            poly_sum_coeffs = np.mod(poly_sum_coeffs, coeff_modulus)
+        
+        return Polynomial(self.ring_degree, poly_sum_coeffs)
 
     def subtract(self, poly, coeff_modulus=None):
         """Subtracts second polynomial from first polynomial in the ring.
@@ -70,12 +71,11 @@ class Polynomial:
         """
         assert isinstance(poly, Polynomial)
 
-        poly_diff = Polynomial(self.ring_degree, [0] * self.ring_degree)
-
-        poly_diff.coeffs = [self.coeffs[i] - poly.coeffs[i] for i in range(self.ring_degree)]
+        poly_diff_coeffs = self.coeffs - poly.coeffs
         if coeff_modulus:
-            poly_diff = poly_diff.mod(coeff_modulus)
-        return poly_diff
+            poly_diff_coeffs = np.mod(poly_diff_coeffs, coeff_modulus)
+        
+        return Polynomial(self.ring_degree, poly_diff_coeffs)
 
     def multiply(self, poly, coeff_modulus, ntt=None, crt=None):
         """Multiplies two polynomials in the ring using NTT.
@@ -102,8 +102,8 @@ class Polynomial:
             return self.multiply_crt(poly, crt)
 
         if ntt:
-            a = ntt.ftt_fwd(self.coeffs)
-            b = ntt.ftt_fwd(poly.coeffs)
+            a = ntt.ftt_fwd(self.coeffs.tolist())
+            b = ntt.ftt_fwd(poly.coeffs.tolist())
             ab = [a[i] * b[i] for i in range(self.ring_degree)]
             prod = ntt.ftt_inv(ab)
             return Polynomial(self.ring_degree, prod)
@@ -133,11 +133,11 @@ class Polynomial:
 
         # Perform NTT for each prime factor.
         for i in range(len(crt.primes)):
-            prod = self.multiply(poly, crt.primes[i], ntt=crt.ntts[i])
+            prod = self.multiply(poly, int(crt.primes[i]), ntt=crt.ntts[i])
             poly_prods.append(prod)
 
         # Combine the products with CRT.
-        final_coeffs = [0] * self.ring_degree
+        final_coeffs = np.zeros(self.ring_degree, dtype=np.int64)
         for i in range(self.ring_degree):
             values = [p.coeffs[i] for p in poly_prods]
             final_coeffs[i] = crt.reconstruct(values)
@@ -161,11 +161,11 @@ class Polynomial:
         assert isinstance(poly, Polynomial)
 
         fft = FFTContext(self.ring_degree * 8)
-        a = fft.fft_fwd(self.coeffs + [0] * self.ring_degree)
-        b = fft.fft_fwd(poly.coeffs + [0] * self.ring_degree)
+        a = fft.fft_fwd(self.coeffs.tolist() + [0] * self.ring_degree)
+        b = fft.fft_fwd(poly.coeffs.tolist() + [0] * self.ring_degree)
         ab = [a[i] * b[i] for i in range(self.ring_degree * 2)]
         prod = fft.fft_inv(ab)
-        poly_prod = [0] * self.ring_degree
+        poly_prod = np.zeros(self.ring_degree)
 
         for d in range(2 * self.ring_degree - 1):
             # Since x^d = -1, the degree is taken mod d, and the sign
@@ -196,8 +196,7 @@ class Polynomial:
         """
         assert isinstance(poly, Polynomial)
 
-        poly_prod = Polynomial(self.ring_degree,
-                               [0] * self.ring_degree)
+        poly_prod_coeffs = np.zeros(self.ring_degree, dtype=np.int64 if coeff_modulus else np.float64)
 
         for d in range(2 * self.ring_degree - 1):
             # Since x^d = -1, the degree is taken mod d, and the sign
@@ -210,12 +209,12 @@ class Polynomial:
             for i in range(self.ring_degree):
                 if 0 <= d - i < self.ring_degree:
                     coeff += self.coeffs[i] * poly.coeffs[d - i]
-            poly_prod.coeffs[index] += sign * coeff
+            poly_prod_coeffs[index] += sign * coeff
             
             if coeff_modulus:
-                poly_prod.coeffs[index] %= coeff_modulus
+                poly_prod_coeffs[index] %= coeff_modulus
 
-        return poly_prod
+        return Polynomial(self.ring_degree, poly_prod_coeffs)
 
     def scalar_multiply(self, scalar, coeff_modulus=None):
         """Multiplies polynomial by a scalar.
@@ -232,10 +231,9 @@ class Polynomial:
             A Polynomial which is the product of the polynomial and the
             scalar.
         """
+        new_coeffs = scalar * self.coeffs
         if coeff_modulus:
-            new_coeffs = [(scalar * c) % coeff_modulus for c in self.coeffs]
-        else:
-            new_coeffs = [(scalar * c) for c in self.coeffs]
+            new_coeffs = np.mod(new_coeffs, coeff_modulus)
         return Polynomial(self.ring_degree, new_coeffs)
 
     def scalar_integer_divide(self, scalar, coeff_modulus=None):
@@ -253,10 +251,9 @@ class Polynomial:
             A Polynomial which is the quotient of the polynomial and the
             scalar.
         """
+        new_coeffs = self.coeffs // scalar
         if coeff_modulus:
-            new_coeffs = [(c // scalar) % coeff_modulus for c in self.coeffs]
-        else:
-            new_coeffs = [(c // scalar) for c in self.coeffs]
+            new_coeffs = np.mod(new_coeffs, coeff_modulus)
         return Polynomial(self.ring_degree, new_coeffs)
 
     def rotate(self, r):
@@ -271,7 +268,7 @@ class Polynomial:
             A rotated Polynomial.
         """
         k = 5 ** r
-        new_coeffs = [0] * self.ring_degree
+        new_coeffs = np.zeros(self.ring_degree, dtype=self.coeffs.dtype)
         for i in range(self.ring_degree):
             index = (i * k) % (2 * self.ring_degree)
             if index < self.ring_degree:
@@ -289,7 +286,7 @@ class Polynomial:
         Returns:
             A conjugated Polynomial.
         """
-        new_coeffs = [0] * self.ring_degree
+        new_coeffs = np.zeros(self.ring_degree, dtype=self.coeffs.dtype)
         new_coeffs[0] = self.coeffs[0]
         for i in range(1, self.ring_degree):
             new_coeffs[i] = -self.coeffs[self.ring_degree - i]
@@ -307,10 +304,10 @@ class Polynomial:
             A Polynomial which is the rounded version of the current
             polynomial.
         """
-        if type(self.coeffs[0]) == complex:
-            new_coeffs = [round(c.real) for c in self.coeffs]
+        if np.iscomplexobj(self.coeffs):
+            new_coeffs = np.round(self.coeffs.real).astype(np.int64)
         else:
-            new_coeffs = [round(c) for c in self.coeffs]
+            new_coeffs = np.round(self.coeffs).astype(np.int64)
         return Polynomial(self.ring_degree, new_coeffs)
 
     def floor(self):
@@ -323,7 +320,7 @@ class Polynomial:
             A Polynomial which is the floor of the current
             polynomial.
         """
-        new_coeffs = [int(c) for c in self.coeffs]
+        new_coeffs = np.floor(self.coeffs).astype(np.int64)
         return Polynomial(self.ring_degree, new_coeffs)
 
     def mod(self, coeff_modulus):
@@ -339,7 +336,7 @@ class Polynomial:
         Returns:
             A Polynomial whose coefficients are modulo coeff_modulus.
         """
-        new_coeffs = [c % coeff_modulus for c in self.coeffs]
+        new_coeffs = np.mod(self.coeffs, coeff_modulus)
         return Polynomial(self.ring_degree, new_coeffs)
 
     def mod_small(self, coeff_modulus):
@@ -357,13 +354,13 @@ class Polynomial:
             A Polynomial whose coefficients are modulo coeff_modulus.
         """
         try:
-            new_coeffs = [c % coeff_modulus for c in self.coeffs]
-            new_coeffs = [c - coeff_modulus if c > coeff_modulus // 2 else c for c in new_coeffs]
+            new_coeffs = np.mod(self.coeffs, coeff_modulus)
+            new_coeffs = np.where(new_coeffs > coeff_modulus // 2, new_coeffs - coeff_modulus, new_coeffs)
         except:
             print(self.coeffs)
             print(coeff_modulus)
-            new_coeffs = [c % coeff_modulus for c in self.coeffs]
-            new_coeffs = [c - coeff_modulus if c > coeff_modulus // 2 else c for c in new_coeffs]
+            new_coeffs = np.mod(self.coeffs, coeff_modulus)
+            new_coeffs = np.where(new_coeffs > coeff_modulus // 2, new_coeffs - coeff_modulus, new_coeffs)
         return Polynomial(self.ring_degree, new_coeffs)
 
     def base_decompose(self, base, num_levels):
@@ -378,7 +375,7 @@ class Polynomial:
             An array of Polynomials, where the ith element is the coefficient of
             the base T^i.
         """
-        decomposed = [Polynomial(self.ring_degree, [0] * self.ring_degree) for _ in range(num_levels)]
+        decomposed = [Polynomial(self.ring_degree, np.zeros(self.ring_degree, dtype=np.int64)) for _ in range(num_levels)]
         poly = self
 
         for i in range(num_levels):
