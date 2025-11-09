@@ -2,6 +2,7 @@
 
 from math import sqrt
 import math
+import numpy as np
 
 from ckks.ckks_bootstrapping_context import CKKSBootstrappingContext
 from util.ciphertext import Ciphertext
@@ -401,9 +402,9 @@ class CKKSEvaluator:
         Returns:
             Plaintext with constant value.
         """
-        plain_vec = [0] * (self.degree)
+        plain_vec = np.zeros(self.degree, dtype=int)
         plain_vec[0] = int(const * self.scaling_factor)
-        return Plaintext(Polynomial(self.degree, plain_vec), self.scaling_factor)
+        return Plaintext(Polynomial(self.degree, plain_vec.tolist()), self.scaling_factor)
 
     def create_complex_constant_plain(self, const, encoder):
         """Creates a plaintext containing a constant value.
@@ -417,8 +418,8 @@ class CKKSEvaluator:
         Returns:
             Plaintext with constant value.
         """
-        plain_vec = [const] * (self.degree // 2)
-        return encoder.encode(plain_vec, self.scaling_factor)
+        plain_vec = np.full(self.degree // 2, const)
+        return encoder.encode(plain_vec.tolist(), self.scaling_factor)
 
     def coeff_to_slot(self, ciph, rot_keys, conj_key, encoder):
         """Takes a ciphertext coefficients and puts into plaintext slots.
