@@ -4,6 +4,7 @@ import numpy as np
 import util.number_theory as nbtheory
 from util.ntt import NTTContext
 
+
 class CRTContext:
     """An instance of Chinese Remainder Theorem parameters.
     
@@ -26,7 +27,10 @@ class CRTContext:
         self.poly_degree = poly_degree
         self.generate_primes(num_primes, prime_size, mod=2*poly_degree)
         self.generate_ntt_contexts()
-        self.modulus = np.prod(self.primes)
+        # Use Python's native multiplication for large numbers
+        self.modulus = 1
+        for prime in self.primes:
+            self.modulus *= int(prime)
         self.precompute_crt()
     
     def generate_primes(self, num_primes, prime_size, mod):
@@ -58,12 +62,22 @@ class CRTContext:
         """Perform precomputations required for switching representations.
         """
         num_primes = len(self.primes)
-        self.crt_vals = np.zeros(num_primes, dtype=np.int64)
-        self.crt_inv_vals = np.zeros(num_primes, dtype=np.int64)
         
-        for i in range(num_primes):
-            self.crt_vals[i] = self.modulus // self.primes[i]
-            self.crt_inv_vals[i] = nbtheory.mod_inv(int(self.crt_vals[i]), int(self.primes[i]))
+        # Use Python integers for large modulus values
+        if self.modulus > 2**63:
+            self.crt_vals = np.zeros(num_primes, dtype=object)
+            self.crt_inv_vals = np.zeros(num_primes, dtype=object)
+            
+            for i in range(num_primes):
+                self.crt_vals[i] = self.modulus // int(self.primes[i])
+                self.crt_inv_vals[i] = nbtheory.mod_inv(int(self.crt_vals[i]), int(self.primes[i]))
+        else:
+            self.crt_vals = np.zeros(num_primes, dtype=np.int64)
+            self.crt_inv_vals = np.zeros(num_primes, dtype=np.int64)
+            
+            for i in range(num_primes):
+                self.crt_vals[i] = self.modulus // self.primes[i]
+                self.crt_inv_vals[i] = nbtheory.mod_inv(int(self.crt_vals[i]), int(self.primes[i]))
     
     def crt(self, value):
         """Transform value to CRT representation.
@@ -83,9 +97,17 @@ class CRTContext:
         values = np.asarray(values, dtype=np.int64)
         assert len(values) == len(self.primes)
         
-        # Vectorized computation
-        intermed_vals = np.mod(values * self.crt_inv_vals, self.primes)
-        intermed_vals = np.mod(intermed_vals * self.crt_vals, self.modulus)
-        regular_rep_val = np.sum(intermed_vals) % self.modulus
+        # Use Python integers for large modulus
+        if self.modulus > 2**63:
+            regular_rep_val = 0
+            for i in range(len(values)):
+                intermed_val = (int(values[i]) * int(self.crt_inv_vals[i])) % int(self.primes[i])
+                intermed_val = (intermed_val * int(self.crt_vals[i])) % self.modulus
+                regular_rep_val = (regular_rep_val + intermed_val) % self.modulus
+        else:
+            # Vectorized computation for smaller moduli
+            intermed_vals = np.mod(values * self.crt_inv_vals, self.primes)
+            intermed_vals = np.mod(intermed_vals * self.crt_vals, self.modulus)
+            regular_rep_val = np.sum(intermed_vals) % self.modulus
         
         return int(regular_rep_val)
