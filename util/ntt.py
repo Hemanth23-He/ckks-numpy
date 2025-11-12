@@ -147,18 +147,27 @@ class NTTContext:
         """
         use_object_dtype = self.coeff_modulus > 2**63
         
-        if use_object_dtype:
-            coeffs = np.asarray(coeffs, dtype=object)
-            ftt_input = np.array([int(coeffs[i]) * int(self.roots_of_unity[i]) % self.coeff_modulus 
-                                  for i in range(len(coeffs))], dtype=object)
-        else:
-            coeffs = np.asarray(coeffs, dtype=np.int64)
-            ftt_input = np.mod(coeffs * self.roots_of_unity, self.coeff_modulus)
-        
         num_coeffs = len(coeffs)
         assert num_coeffs == self.degree, "ftt_fwd: input length does not match context degree"
         
-        return self.ntt(coeffs=ftt_input, rou=self.roots_of_unity)
+        # Check if coeffs contain large integers
+        try:
+            if use_object_dtype:
+                coeffs = np.asarray(coeffs, dtype=object)
+            else:
+                coeffs = np.asarray(coeffs, dtype=np.int64)
+        except (OverflowError, ValueError):
+            # If we can't convert to int64, use object dtype
+            coeffs = np.asarray(coeffs, dtype=object)
+            use_object_dtype = True
+        
+        if use_object_dtype:
+            ftt_input = np.array([int(coeffs[i]) * int(self.roots_of_unity[i]) % self.coeff_modulus 
+                                  for i in range(len(coeffs))], dtype=object)
+        else:
+            ftt_input = np.mod(coeffs * self.roots_of_unity, self.coeff_modulus)
+        
+        return self.ntt(coeffs=ftt_input.tolist(), rou=self.roots_of_unity)
     
     def ftt_inv(self, coeffs):
         """Runs inverse FTT on the given coefficients.
@@ -171,15 +180,21 @@ class NTTContext:
         """
         use_object_dtype = self.coeff_modulus > 2**63
         
-        if use_object_dtype:
-            coeffs = np.asarray(coeffs, dtype=object)
-        else:
-            coeffs = np.asarray(coeffs, dtype=np.int64)
-        
         num_coeffs = len(coeffs)
         assert num_coeffs == self.degree, "ntt_inv: input length does not match context degree"
         
-        to_scale_down = self.ntt(coeffs=coeffs, rou=self.roots_of_unity_inv)
+        # Check if coeffs contain large integers
+        try:
+            if use_object_dtype:
+                coeffs = np.asarray(coeffs, dtype=object)
+            else:
+                coeffs = np.asarray(coeffs, dtype=np.int64)
+        except (OverflowError, ValueError):
+            # If we can't convert to int64, use object dtype
+            coeffs = np.asarray(coeffs, dtype=object)
+            use_object_dtype = True
+        
+        to_scale_down = self.ntt(coeffs=coeffs.tolist(), rou=self.roots_of_unity_inv)
         poly_degree_inv = nbtheory.mod_inv(self.degree, self.coeff_modulus)
         
         if use_object_dtype:
