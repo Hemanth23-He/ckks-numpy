@@ -39,11 +39,12 @@ class CKKSEncoder:
         to_scale_array = np.asarray(to_scale, dtype=complex)
         
         # Multiply by scaling factor, and split up real and imaginary parts.
-        message = np.zeros(plain_len, dtype=int)
-        message[:num_values] = np.round(to_scale_array.real * scaling_factor).astype(int)
-        message[num_values:] = np.round(to_scale_array.imag * scaling_factor).astype(int)
+        message = [0] * plain_len
+        for i in range(num_values):
+            message[i] = int(to_scale_array[i].real * scaling_factor + 0.5)
+            message[i + num_values] = int(to_scale_array[i].imag * scaling_factor + 0.5)
         
-        return Plaintext(Polynomial(plain_len, message.tolist()), scaling_factor)
+        return Plaintext(Polynomial(plain_len, message), scaling_factor)
     
     def decode(self, plain):
         """Decodes a plaintext polynomial.
@@ -56,14 +57,15 @@ class CKKSEncoder:
         if not isinstance(plain, Plaintext):
             raise ValueError("Input to decode must be a Plaintext")
         
-        coeffs_array = np.asarray(plain.poly.coeffs)
-        plain_len = len(coeffs_array)
+        plain_len = len(plain.poly.coeffs)
         num_values = plain_len >> 1
         
         # Divide by scaling factor, and turn back into a complex number.
-        real_parts = coeffs_array[:num_values] / plain.scaling_factor
-        imag_parts = coeffs_array[num_values:] / plain.scaling_factor
-        message = real_parts + 1j * imag_parts
+        message = [0] * num_values
+        for i in range(num_values):
+            real_part = plain.poly.coeffs[i] / plain.scaling_factor
+            imag_part = plain.poly.coeffs[i + num_values] / plain.scaling_factor
+            message[i] = complex(real_part, imag_part)
         
         # Compute canonical embedding variant.
-        return self.fft.embedding(message.tolist())
+        return self.fft.embedding(message)
