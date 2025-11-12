@@ -1,5 +1,4 @@
 """A module to decrypt for the CKKS scheme."""
-import numpy as np
 from util.plaintext import Plaintext
 
 
