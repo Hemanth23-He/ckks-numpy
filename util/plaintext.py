@@ -1,5 +1,4 @@
 """A module to keep track of a plaintext."""
-import numpy as np
 
 class Plaintext:
     """An instance of a plaintext.
@@ -19,7 +18,7 @@ class Plaintext:
             poly (Polynomial): Plaintext polynomial.
             scaling_factor (float): Scaling factor.
         """
-        self.poly = np.asarray(poly)
+        self.poly = poly
         self.scaling_factor = scaling_factor
     
     def __str__(self):
