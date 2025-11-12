@@ -2,9 +2,8 @@
 import numpy as np
 import random
 
+
 def sample_uniform(min_val, max_val, num_samples):
-    """Sample from uniform distribution."""
-  
     """Samples from a uniform distribution.
     
     Samples num_samples integer values from the range [min, max)
@@ -18,9 +17,11 @@ def sample_uniform(min_val, max_val, num_samples):
     Returns:
         A list of randomly sampled values.
     """
-     if num_samples == 1:
+    # Use Python's random module for very large integers (cryptographic use)
+    if num_samples == 1:
         return random.randint(min_val, max_val - 1)
     return [random.randint(min_val, max_val - 1) for _ in range(num_samples)]
+
 
 def sample_triangle(num_samples):
     """Samples from a discrete triangle distribution.
@@ -37,6 +38,7 @@ def sample_triangle(num_samples):
     r = np.random.randint(0, 4, size=num_samples)
     sample = np.where(r == 0, -1, np.where(r == 1, 1, 0))
     return sample.tolist()
+
 
 def sample_hamming_weight_vector(length, hamming_weight):
     """Samples from a Hamming weight distribution.
@@ -57,6 +59,7 @@ def sample_hamming_weight_vector(length, hamming_weight):
     sample[indices] = values
     return sample.tolist()
 
+
 def sample_random_complex_vector(length):
     """Samples a random complex vector,
     
@@ -73,6 +76,7 @@ def sample_random_complex_vector(length):
     b = np.random.random(length)
     sample = a + b * 1j
     return sample.tolist()
+
 
 def sample_random_real_vector(length):
     """Samples a random complex vector,
