@@ -27,11 +27,19 @@ class Polynomial:
                 coefficients of polynomial.
         """
         self.ring_degree = degree
-        coeffs = np.asarray(coeffs)
-        assert len(coeffs) == degree, 'Size of polynomial array %d is not \
-            equal to degree %d of ring' %(len(coeffs), degree)
-
-        self.coeffs = coeffs
+        # Use object dtype for very large integers (cryptographic use)
+        if isinstance(coeffs, np.ndarray):
+            self.coeffs = coeffs
+        else:
+            # Check if we need object dtype for large integers
+            try:
+                coeffs = np.asarray(coeffs, dtype=np.int64)
+            except (OverflowError, ValueError):
+                coeffs = np.asarray(coeffs, dtype=object)
+            self.coeffs = coeffs
+        
+        assert len(self.coeffs) == degree, 'Size of polynomial array %d is not \
+            equal to degree %d of ring' %(len(self.coeffs), degree)
 
     def add(self, poly, coeff_modulus=None):
         """Adds two polynomials in the ring.
@@ -51,7 +59,11 @@ class Polynomial:
 
         poly_sum_coeffs = self.coeffs + poly.coeffs
         if coeff_modulus:
-            poly_sum_coeffs = np.mod(poly_sum_coeffs, coeff_modulus)
+            # Handle large modulus with Python integers
+            if coeff_modulus > 2**63:
+                poly_sum_coeffs = np.array([int(c) % coeff_modulus for c in poly_sum_coeffs], dtype=object)
+            else:
+                poly_sum_coeffs = np.mod(poly_sum_coeffs, coeff_modulus)
         
         return Polynomial(self.ring_degree, poly_sum_coeffs)
 
@@ -73,7 +85,11 @@ class Polynomial:
 
         poly_diff_coeffs = self.coeffs - poly.coeffs
         if coeff_modulus:
-            poly_diff_coeffs = np.mod(poly_diff_coeffs, coeff_modulus)
+            # Handle large modulus with Python integers
+            if coeff_modulus > 2**63:
+                poly_diff_coeffs = np.array([int(c) % coeff_modulus for c in poly_diff_coeffs], dtype=object)
+            else:
+                poly_diff_coeffs = np.mod(poly_diff_coeffs, coeff_modulus)
         
         return Polynomial(self.ring_degree, poly_diff_coeffs)
 
@@ -196,7 +212,11 @@ class Polynomial:
         """
         assert isinstance(poly, Polynomial)
 
-        poly_prod_coeffs = np.zeros(self.ring_degree, dtype=np.int64 if coeff_modulus else np.float64)
+        # Use object dtype for very large integers to avoid overflow
+        if coeff_modulus and coeff_modulus > 2**63:
+            poly_prod_coeffs = np.zeros(self.ring_degree, dtype=object)
+        else:
+            poly_prod_coeffs = np.zeros(self.ring_degree, dtype=np.int64 if coeff_modulus else np.float64)
 
         for d in range(2 * self.ring_degree - 1):
             # Since x^d = -1, the degree is taken mod d, and the sign
@@ -208,11 +228,11 @@ class Polynomial:
             coeff = 0
             for i in range(self.ring_degree):
                 if 0 <= d - i < self.ring_degree:
-                    coeff += self.coeffs[i] * poly.coeffs[d - i]
+                    coeff += int(self.coeffs[i]) * int(poly.coeffs[d - i])
             poly_prod_coeffs[index] += sign * coeff
             
             if coeff_modulus:
-                poly_prod_coeffs[index] %= coeff_modulus
+                poly_prod_coeffs[index] = int(poly_prod_coeffs[index]) % coeff_modulus
 
         return Polynomial(self.ring_degree, poly_prod_coeffs)
 
@@ -233,7 +253,11 @@ class Polynomial:
         """
         new_coeffs = scalar * self.coeffs
         if coeff_modulus:
-            new_coeffs = np.mod(new_coeffs, coeff_modulus)
+            # Handle large modulus with Python integers
+            if coeff_modulus > 2**63:
+                new_coeffs = np.array([int(c) % coeff_modulus for c in new_coeffs], dtype=object)
+            else:
+                new_coeffs = np.mod(new_coeffs, coeff_modulus)
         return Polynomial(self.ring_degree, new_coeffs)
 
     def scalar_integer_divide(self, scalar, coeff_modulus=None):
@@ -251,9 +275,14 @@ class Polynomial:
             A Polynomial which is the quotient of the polynomial and the
             scalar.
         """
-        new_coeffs = self.coeffs // scalar
-        if coeff_modulus:
-            new_coeffs = np.mod(new_coeffs, coeff_modulus)
+        if coeff_modulus and coeff_modulus > 2**63:
+            # Handle large modulus with Python integers
+            new_coeffs = np.array([int(c) // int(scalar) for c in self.coeffs], dtype=object)
+            new_coeffs = np.array([int(c) % coeff_modulus for c in new_coeffs], dtype=object)
+        else:
+            new_coeffs = self.coeffs // scalar
+            if coeff_modulus:
+                new_coeffs = np.mod(new_coeffs, coeff_modulus)
         return Polynomial(self.ring_degree, new_coeffs)
 
     def rotate(self, r):
@@ -336,7 +365,11 @@ class Polynomial:
         Returns:
             A Polynomial whose coefficients are modulo coeff_modulus.
         """
-        new_coeffs = np.mod(self.coeffs, coeff_modulus)
+        # Handle large modulus with Python integers
+        if coeff_modulus > 2**63:
+            new_coeffs = np.array([int(c) % coeff_modulus for c in self.coeffs], dtype=object)
+        else:
+            new_coeffs = np.mod(self.coeffs, coeff_modulus)
         return Polynomial(self.ring_degree, new_coeffs)
 
     def mod_small(self, coeff_modulus):
@@ -353,8 +386,19 @@ class Polynomial:
         Returns:
             A Polynomial whose coefficients are modulo coeff_modulus.
         """
-        new_coeffs = np.mod(self.coeffs, coeff_modulus)
-        new_coeffs = np.where(new_coeffs > coeff_modulus // 2, new_coeffs - coeff_modulus, new_coeffs)
+        # Handle large modulus with Python integers
+        if coeff_modulus > 2**63:
+            new_coeffs = []
+            half_mod = coeff_modulus // 2
+            for c in self.coeffs:
+                c_mod = int(c) % coeff_modulus
+                if c_mod > half_mod:
+                    c_mod -= coeff_modulus
+                new_coeffs.append(c_mod)
+            new_coeffs = np.array(new_coeffs, dtype=object)
+        else:
+            new_coeffs = np.mod(self.coeffs, coeff_modulus)
+            new_coeffs = np.where(new_coeffs > coeff_modulus // 2, new_coeffs - coeff_modulus, new_coeffs)
         return Polynomial(self.ring_degree, new_coeffs)
 
     def base_decompose(self, base, num_levels):
