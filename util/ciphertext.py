@@ -1,5 +1,4 @@
 """A module to keep track of a ciphertext."""
-import numpy as np
 
 class Ciphertext:
     """An instance of a ciphertext.
@@ -23,8 +22,8 @@ class Ciphertext:
             scaling_factor (float): Scaling factor. Can be None for BFV.
             modulus (int): Ciphertext modulus. Can be None for BFV.
         """
-        self.c0 = np.asarray(c0)
-        self.c1 = np.asarray(c1)
+        self.c0 = c0
+        self.c1 = c1
         self.scaling_factor = scaling_factor
         self.modulus = modulus
     
