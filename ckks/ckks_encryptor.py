@@ -1,5 +1,4 @@
 """A module to encrypt for the CKKS scheme."""
-import numpy as np
 from util.ciphertext import Ciphertext
 from util.polynomial import Polynomial
 from util.random_sample import sample_triangle
