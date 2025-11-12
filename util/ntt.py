@@ -97,12 +97,27 @@ class NTTContext:
         # Use object dtype for very large integers
         use_object_dtype = self.coeff_modulus > 2**63
         
-        if use_object_dtype:
-            coeffs = np.asarray(coeffs, dtype=object)
-            rou = np.asarray(rou, dtype=object)
+        # Convert coefficients, handling potential overflow
+        if isinstance(coeffs, np.ndarray):
+            if use_object_dtype and coeffs.dtype != object:
+                coeffs = coeffs.astype(object)
         else:
-            coeffs = np.asarray(coeffs, dtype=np.int64)
-            rou = np.asarray(rou, dtype=np.int64)
+            try:
+                coeffs = np.asarray(coeffs, dtype=np.int64 if not use_object_dtype else object)
+            except (OverflowError, ValueError):
+                coeffs = np.asarray(coeffs, dtype=object)
+                use_object_dtype = True
+        
+        # Convert rou
+        if isinstance(rou, np.ndarray):
+            if use_object_dtype and rou.dtype != object:
+                rou = rou.astype(object)
+        else:
+            try:
+                rou = np.asarray(rou, dtype=np.int64 if not use_object_dtype else object)
+            except (OverflowError, ValueError):
+                rou = np.asarray(rou, dtype=object)
+                use_object_dtype = True
         
         num_coeffs = len(coeffs)
         assert len(rou) == num_coeffs, \
@@ -183,27 +198,30 @@ class NTTContext:
         num_coeffs = len(coeffs)
         assert num_coeffs == self.degree, "ntt_inv: input length does not match context degree"
         
-        # Check if coeffs contain large integers
+        # Check if any coefficient is too large and convert appropriately
         try:
-            if use_object_dtype:
-                coeffs = np.asarray(coeffs, dtype=object)
-            else:
-                coeffs = np.asarray(coeffs, dtype=np.int64)
-        except (OverflowError, ValueError):
-            # If we can't convert to int64, use object dtype
-            coeffs = np.asarray(coeffs, dtype=object)
-            use_object_dtype = True
+            max_coeff = max(abs(int(c)) for c in coeffs)
+            if max_coeff > 2**62:  # Leave some margin
+                use_object_dtype = True
+        except:
+            pass
         
-        to_scale_down = self.ntt(coeffs=coeffs.tolist(), rou=self.roots_of_unity_inv)
+        to_scale_down = self.ntt(coeffs=coeffs, rou=self.roots_of_unity_inv)
         poly_degree_inv = nbtheory.mod_inv(self.degree, self.coeff_modulus)
         
         if use_object_dtype:
-            to_scale_down = np.asarray(to_scale_down, dtype=object)
-            result = np.array([int(to_scale_down[i]) * int(self.roots_of_unity_inv[i]) * poly_degree_inv % self.coeff_modulus 
-                              for i in range(len(to_scale_down))], dtype=object)
+            to_scale_down_array = np.asarray(to_scale_down, dtype=object)
+            result = np.array([int(to_scale_down_array[i]) * int(self.roots_of_unity_inv[i]) * poly_degree_inv % self.coeff_modulus 
+                              for i in range(len(to_scale_down_array))], dtype=object)
         else:
-            to_scale_down = np.asarray(to_scale_down, dtype=np.int64)
-            result = np.mod(to_scale_down * self.roots_of_unity_inv * poly_degree_inv, self.coeff_modulus)
+            try:
+                to_scale_down_array = np.asarray(to_scale_down, dtype=np.int64)
+                result = np.mod(to_scale_down_array * self.roots_of_unity_inv * poly_degree_inv, self.coeff_modulus)
+            except (OverflowError, ValueError):
+                # Fallback to object dtype
+                to_scale_down_array = np.asarray(to_scale_down, dtype=object)
+                result = np.array([int(to_scale_down_array[i]) * int(self.roots_of_unity_inv[i]) * poly_degree_inv % self.coeff_modulus 
+                                  for i in range(len(to_scale_down_array))], dtype=object)
         
         return result.tolist()
 
