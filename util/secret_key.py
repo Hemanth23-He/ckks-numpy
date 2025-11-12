@@ -1,5 +1,4 @@
 """A module to keep track of a secret key."""
-import numpy as np
 
 
 class SecretKey:
