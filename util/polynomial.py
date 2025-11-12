@@ -117,7 +117,8 @@ class Polynomial:
         if crt:
             return self.multiply_crt(poly, crt)
 
-        if ntt:
+        # Check if we should use NTT (only for smaller moduli)
+        if ntt and coeff_modulus <= 2**63:
             a = ntt.ftt_fwd(self.coeffs.tolist())
             b = ntt.ftt_fwd(poly.coeffs.tolist())
             ab = [a[i] * b[i] for i in range(self.ring_degree)]
@@ -213,7 +214,12 @@ class Polynomial:
         assert isinstance(poly, Polynomial)
 
         # Use object dtype for very large integers to avoid overflow
-        if coeff_modulus and coeff_modulus > 2**63:
+        try:
+            use_object_dtype = coeff_modulus and coeff_modulus > 2**63
+        except:
+            use_object_dtype = True  # If comparison fails, assume large number
+        
+        if use_object_dtype:
             poly_prod_coeffs = np.zeros(self.ring_degree, dtype=object)
         else:
             poly_prod_coeffs = np.zeros(self.ring_degree, dtype=np.int64 if coeff_modulus else np.float64)
@@ -229,10 +235,11 @@ class Polynomial:
             for i in range(self.ring_degree):
                 if 0 <= d - i < self.ring_degree:
                     coeff += int(self.coeffs[i]) * int(poly.coeffs[d - i])
+            
             poly_prod_coeffs[index] += sign * coeff
             
             if coeff_modulus:
-                poly_prod_coeffs[index] = int(poly_prod_coeffs[index]) % coeff_modulus
+                poly_prod_coeffs[index] = int(poly_prod_coeffs[index]) % int(coeff_modulus)
 
         return Polynomial(self.ring_degree, poly_prod_coeffs)
 
