@@ -1,6 +1,5 @@
 """A module to keep track of parameters for the CKKS scheme."""
 import math
-import numpy as np
 from util.crt import CRTContext
 
 
