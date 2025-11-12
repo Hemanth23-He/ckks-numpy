@@ -118,10 +118,16 @@ class Polynomial:
             return self.multiply_crt(poly, crt)
 
         # Check if we should use NTT (only for smaller moduli)
-        if ntt and coeff_modulus <= 2**63:
+        try:
+            use_ntt = ntt and coeff_modulus <= 2**63
+        except:
+            use_ntt = False  # If comparison fails, don't use NTT
+            
+        if use_ntt:
             a = ntt.ftt_fwd(self.coeffs.tolist())
             b = ntt.ftt_fwd(poly.coeffs.tolist())
-            ab = [a[i] * b[i] for i in range(self.ring_degree)]
+            # Perform modular multiplication to keep intermediate results small
+            ab = [(int(a[i]) * int(b[i])) % coeff_modulus for i in range(self.ring_degree)]
             prod = ntt.ftt_inv(ab)
             return Polynomial(self.ring_degree, prod)
         
