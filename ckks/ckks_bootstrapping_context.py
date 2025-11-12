@@ -1,6 +1,5 @@
 """A module to encrypt for the CKKS scheme."""
 import math
-import numpy as np
 from util.ciphertext import Ciphertext
 import util.matrix_operations
 from util.polynomial import Polynomial
@@ -47,38 +46,34 @@ class CKKSBootstrappingContext:
         """
         num_slots = self.poly_degree // 2
         
-        # Generate primitive roots using NumPy
-        primitive_roots = np.zeros(num_slots, dtype=complex)
+        # Generate primitive roots
+        primitive_roots = [0] * num_slots
         power = 1
         for i in range(num_slots):
             primitive_roots[i] = self.get_primitive_root(power)
             power = (power * 5) % (2 * self.poly_degree)
         
-        # Compute matrices for slot to coeff transformation using NumPy
-        self.encoding_mat0 = np.ones((num_slots, num_slots), dtype=complex)
-        self.encoding_mat1 = np.ones((num_slots, num_slots), dtype=complex)
+        # Compute matrices for slot to coeff transformation
+        self.encoding_mat0 = [[1] * num_slots for _ in range(num_slots)]
+        self.encoding_mat1 = [[1] * num_slots for _ in range(num_slots)]
         
         # Fill encoding_mat0
         for i in range(num_slots):
             for k in range(1, num_slots):
-                self.encoding_mat0[i, k] = self.encoding_mat0[i, k - 1] * primitive_roots[i]
+                self.encoding_mat0[i][k] = self.encoding_mat0[i][k - 1] * primitive_roots[i]
         
         # Fill encoding_mat1
         for i in range(num_slots):
-            self.encoding_mat1[i, 0] = self.encoding_mat0[i, -1] * primitive_roots[i]
+            self.encoding_mat1[i][0] = self.encoding_mat0[i][-1] * primitive_roots[i]
         
         for i in range(num_slots):
             for k in range(1, num_slots):
-                self.encoding_mat1[i, k] = self.encoding_mat1[i, k - 1] * primitive_roots[i]
-        
-        # Convert to lists for compatibility with util.matrix_operations
-        encoding_mat0_list = self.encoding_mat0.tolist()
-        encoding_mat1_list = self.encoding_mat1.tolist()
+                self.encoding_mat1[i][k] = self.encoding_mat1[i][k - 1] * primitive_roots[i]
         
         # Compute matrices for coeff to slot transformation
-        self.encoding_mat_transpose0 = util.matrix_operations.transpose_matrix(encoding_mat0_list)
+        self.encoding_mat_transpose0 = util.matrix_operations.transpose_matrix(self.encoding_mat0)
         self.encoding_mat_conj_transpose0 = util.matrix_operations.conjugate_matrix(
             self.encoding_mat_transpose0)
-        self.encoding_mat_transpose1 = util.matrix_operations.transpose_matrix(encoding_mat1_list)
+        self.encoding_mat_transpose1 = util.matrix_operations.transpose_matrix(self.encoding_mat1)
         self.encoding_mat_conj_transpose1 = util.matrix_operations.conjugate_matrix(
             self.encoding_mat_transpose1)
