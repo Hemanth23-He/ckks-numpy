@@ -14,7 +14,7 @@ class SecretKey:
         Args:
             s (Polynomial): Secret key.
         """
-        self.s = np.asarray(s) if not isinstance(s, np.ndarray) else s
+        self.s = s
     
     def __str__(self):
         """Represents secret key as a string.
