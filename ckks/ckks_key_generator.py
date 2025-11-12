@@ -1,6 +1,5 @@
 """A module to generate public and private keys for the CKKS scheme."""
 
-import numpy as np
 from util.polynomial import Polynomial
 from util.public_key import PublicKey
 from util.rotation_key import RotationKey
