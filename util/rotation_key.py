@@ -1,5 +1,5 @@
+
 """A module to keep track of a rotation key."""
-import numpy as np
 
 class RotationKey:
     """An instance of a rotation key.
