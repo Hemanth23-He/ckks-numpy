@@ -1,5 +1,4 @@
 """A module to keep track of a public key."""
-import numpy as np
 
 class PublicKey:
     """An instance of a public key.
@@ -29,3 +28,6 @@ class PublicKey:
             A string which represents the PublicKey.
         """
         return 'p0: ' + str(self.p0) + '\n + p1: ' + str(self.p1)
+
+
+
