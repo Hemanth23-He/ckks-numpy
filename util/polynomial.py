@@ -160,7 +160,12 @@ class Polynomial:
             poly_prods.append(prod)
 
         # Combine the products with CRT.
-        final_coeffs = np.zeros(self.ring_degree, dtype=np.int64)
+        # Use object dtype for large moduli
+        if crt.modulus > 2**63:
+            final_coeffs = np.zeros(self.ring_degree, dtype=object)
+        else:
+            final_coeffs = np.zeros(self.ring_degree, dtype=np.int64)
+            
         for i in range(self.ring_degree):
             values = [p.coeffs[i] for p in poly_prods]
             final_coeffs[i] = crt.reconstruct(values)
