@@ -5,6 +5,14 @@ import util.number_theory as nbtheory
 from util.ntt import NTTContext
 
 
+def _is_large_modulus(modulus):
+    """Safely check if modulus is too large for int64."""
+    try:
+        return modulus > 2**63
+    except (OverflowError, ValueError, TypeError):
+        return True
+
+
 class CRTContext:
     """An instance of Chinese Remainder Theorem parameters.
     
@@ -64,7 +72,7 @@ class CRTContext:
         num_primes = len(self.primes)
         
         # Use Python integers for large modulus values
-        if self.modulus > 2**63:
+        if _is_large_modulus(self.modulus):
             self.crt_vals = np.zeros(num_primes, dtype=object)
             self.crt_inv_vals = np.zeros(num_primes, dtype=object)
             
@@ -98,7 +106,7 @@ class CRTContext:
         assert len(values) == len(self.primes)
         
         # Use Python integers for large modulus
-        if self.modulus > 2**63:
+        if _is_large_modulus(self.modulus):
             regular_rep_val = 0
             for i in range(len(values)):
                 intermed_val = (int(values[i]) * int(self.crt_inv_vals[i])) % int(self.primes[i])
