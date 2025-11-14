@@ -6,6 +6,15 @@ import numpy as np
 import util.number_theory as nbtheory
 from util.bit_operations import bit_reverse_vec, reverse_bits
 
+
+def _is_large_modulus(modulus):
+    """Safely check if modulus is too large for int64."""
+    try:
+        return modulus > 2**63
+    except (OverflowError, ValueError, TypeError):
+        return True
+
+
 class NTTContext:
     """An instance of Number/Fermat Theoretic Transform parameters.
     Here, R is the quotient ring Z_a[x]/f(x), where f(x) = x^d + 1.
