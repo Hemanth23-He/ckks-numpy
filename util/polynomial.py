@@ -4,6 +4,15 @@ Z_a[x]/f(x).
 import numpy as np
 from util.ntt import NTTContext, FFTContext
 
+
+def _is_large_modulus(modulus):
+    """Safely check if modulus is too large for int64."""
+    try:
+        return modulus > 2**63
+    except (OverflowError, ValueError, TypeError):
+        return True
+
+
 class Polynomial:
     """A polynomial in the ring R_a.
 
@@ -160,11 +169,8 @@ class Polynomial:
             poly_prods.append(prod)
 
         # Combine the products with CRT.
-        # Use object dtype for large moduli
-        if crt.modulus > 2**63:
-            final_coeffs = np.zeros(self.ring_degree, dtype=object)
-        else:
-            final_coeffs = np.zeros(self.ring_degree, dtype=np.int64)
+        # Always use object dtype for CRT reconstruction to handle large results
+        final_coeffs = np.zeros(self.ring_degree, dtype=object)
             
         for i in range(self.ring_degree):
             values = [p.coeffs[i] for p in poly_prods]
